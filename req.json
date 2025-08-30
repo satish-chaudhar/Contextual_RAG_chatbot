@@ -1,0 +1,7 @@
+﻿{
+  "model": "llama3.2:3b",
+  "messages": [
+    { "role": "system", "content": "reply briefly" },
+    { "role": "user",   "content": "list 3 cities" }
+  ]
+}

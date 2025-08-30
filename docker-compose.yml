@@ -1,0 +1,101 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: owcr_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init_pgvector.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Use your custom Ollama image (built from docker.ollama)
+  ollama:
+    build:
+      context: .
+      dockerfile: ./docker.ollama
+    container_name: owcr_ollama
+    # default entrypoint already runs `ollama serve`
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_LOAD_TIMEOUT=900s
+      - OLLAMA_CPU=1         # 16 GB RAM -> force CPU mode
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      # uses curl (present in your custom image)
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags > /dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 180
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: owcr_phoenix
+    ports:
+      - "6006:6006"   # UI + OTLP/HTTP collector
+      - "4317:4317"   # OTLP/gRPC collector
+
+  api:
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile
+    container_name: owcr_api
+    env_file:  # Added this to load variables from .env
+      - .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:admin@postgres:5432/postgres}
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - EMBED_MODEL=${EMBED_MODEL:-all-minilm:l12-v2}
+      - LLM_MODEL=${LLM_MODEL:-llama3.2:3b} 
+      - RERANK_STRATEGY=${RERANK_STRATEGY:-mmr}
+      - TOP_K=${TOP_K:-24}
+      - TOP_N=${TOP_N:-8}
+      - MAX_CONTEXT_CHARS=${MAX_CONTEXT_CHARS:-12000}
+      - PHOENIX_ENABLED=true
+      - PHOENIX_PROJECT=owcr
+      - PHOENIX_ENDPOINT=http://phoenix:6006/v1/traces
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://phoenix:6006/v1/traces
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - RERANK_STRATEGY=ce
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./docs:/app/docs:ro
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:latest
+    container_name: owcr_webui
+    environment:
+      - OPENAI_API_BASE_URL=http://api:8000/v1
+      - OPENAI_API_KEY=sk-local-anything
+    depends_on:
+      - api
+    ports:
+      - "3000:8080"
+    volumes:
+      - openwebui:/app/backend/data
+    deploy:
+      resources:
+        limits:
+          memory: 4G  # Increase if needed to prevent OOM errors
+
+volumes:
+  pgdata:
+  ollama:
+  openwebui:
