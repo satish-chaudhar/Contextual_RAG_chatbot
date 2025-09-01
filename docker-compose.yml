@@ -29,7 +29,7 @@ services:
     environment:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_LOAD_TIMEOUT=900s
-      - OLLAMA_CPU=1         # 16 GB RAM -> force CPU mode
+      - OLLAMA_CPU=1         # Force CPU mode
     volumes:
       - ollama:/root/.ollama
     healthcheck:
@@ -49,15 +49,15 @@ services:
   api:
     build:
       context: .
-      dockerfile: ./apps/api/Dockerfile
+      dockerfile: Dockerfile  # Updated to root Dockerfile
     container_name: owcr_api
-    env_file:  # Added this to load variables from .env
+    env_file:
       - .env
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:admin@postgres:5432/postgres}
       - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
       - EMBED_MODEL=${EMBED_MODEL:-all-minilm:l12-v2}
-      - LLM_MODEL=${LLM_MODEL:-llama3.2:3b} 
+      - LLM_MODEL=${LLM_MODEL:-llama3.2:3b}
       - RERANK_STRATEGY=${RERANK_STRATEGY:-mmr}
       - TOP_K=${TOP_K:-24}
       - TOP_N=${TOP_N:-8}
@@ -77,6 +77,14 @@ services:
       - "8000:8000"
     volumes:
       - ./docs:/app/docs:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"  # Limit to 2 CPU cores (adjust based on host)
+          memory: "6G"  # Increased memory limit
+        reservations:
+          cpus: "1.0"
+          memory: "2G"
 
   openwebui:
     image: ghcr.io/open-webui/open-webui:latest
@@ -93,7 +101,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4G  # Increase if needed to prevent OOM errors
+          memory: 4G
 
 volumes:
   pgdata:

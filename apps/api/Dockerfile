@@ -1,34 +1,47 @@
+# Dockerfile (place in project root, e.g., C:\Users\Frames\Downloads\openwebui-contextual-rag-v2)
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/root/.local/bin:${PATH}"
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-dev \
+    python3-pip \
     build-essential \
     libpq-dev \
     curl \
     tesseract-ocr \
     libtesseract-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/bin/python3.11 /usr/bin/python
+
+# Install uv (faster package installer than pip)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements.txt
+# Copy requirements.txt first (for caching)
 COPY requirements.txt /app/requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --verbose -r /app/requirements.txt
+# Install dependencies with uv
+RUN uv pip install --system -r /app/requirements.txt
 
-# Copy the rag directory including eval subdirectory
+# Copy ingestion.py from the correct path
+COPY apps/api/rag/pipelines/ingest.py /app/ingest.py
+
+# Copy rag directory (including utils for chunking)
 COPY apps/api/rag /app/rag
 
-# Copy main.py and other Python files from apps/api to /app
+# Copy main.py and other Python files
 COPY apps/api/main.py /app/
 COPY apps/api/*.py /app/
 
-# Expose port
+# Expose API port
 EXPOSE 8000
 
-# Run the application with debug logging
+# Run application with debug logs
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug"]

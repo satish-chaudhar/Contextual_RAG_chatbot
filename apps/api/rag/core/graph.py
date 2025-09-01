@@ -36,6 +36,13 @@ except Exception as e:
 log = logging.getLogger('rag')
 log.setLevel(logging.INFO)
 
+# ---------- Crew.AI integration for prompt optimization ----------
+try:
+    from .agents import optimize_prompt  # Import your new agents.py
+except Exception as e:
+    optimize_prompt = None  # Fallback if not available
+    log.warning("Crew.AI prompt optimization not available: %s", e)
+
 # ---------- Configuration / defaults ----------
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:admin@postgres:5432/postgres")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
@@ -249,7 +256,6 @@ def _chat(query: str, context_md: str) -> str:
         prompt = SYSTEM_PROMPT + "\n\nContext:\n" + context_md + "\n\n" + query
         call_ctx = tracer.start_as_current_span("call_ollama", attributes={"input.url": OLLAMA_URL, "input.prompt_length": len(prompt.split())}, kind=_trace.SpanKind.CLIENT) if tracer else nullcontext()
         with call_ctx:
-            # Disable retries
             session = requests.Session()
             adapter = requests.adapters.HTTPAdapter(max_retries=0)
             session.mount("http://", adapter)
@@ -270,10 +276,7 @@ def _chat(query: str, context_md: str) -> str:
                         span.set_attribute("output.response_token_estimate", len(response.split()))
                     except Exception as e:
                         log.warning("Failed to set call_ollama attributes: %s", e)
-
         data = r.json()
-
-        # Ollama chat responses can be:
         if isinstance(data, dict) and "message" in data:
             return (data["message"] or {}).get("content", "").strip()
         if isinstance(data, dict) and "choices" in data and data["choices"]:
