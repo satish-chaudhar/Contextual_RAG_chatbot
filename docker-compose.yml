@@ -1,109 +1,114 @@
 services:
+  # PostgreSQL service with pgvector extension
   postgres:
-    image: pgvector/pgvector:pg16
-    container_name: owcr_postgres
+    image: pgvector/pgvector:pg16  # Use pgvector image for PostgreSQL 16
+    container_name: owcr_postgres  # Name the container
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
-      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres  # Set database user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}  # Set password, default to 'admin'
+      POSTGRES_DB: postgres  # Set database name
     ports:
-      - "5432:5432"
+      - "5432:5432"  # Expose PostgreSQL port
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./scripts/init_pgvector.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+      - pgdata:/var/lib/postgresql/data  # Persist database data
+      - ./scripts/init_pgvector.sql:/docker-entrypoint-initdb.d/00-init.sql:ro  # Initialize pgvector
+      - ./scripts/init_chat_history.sql:/docker-entrypoint-initdb.d/01-init-chat.sql:ro  # Initialize chat history
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]  # Check database readiness
       interval: 5s
       timeout: 3s
       retries: 20
 
-  # Use your custom Ollama image (built from docker.ollama)
+  # Ollama service for LLM and embeddings
   ollama:
     build:
-      context: .
-      dockerfile: ./docker.ollama
-    container_name: owcr_ollama
-    # default entrypoint already runs `ollama serve`
+      context: .  # Build context is current directory
+      dockerfile: ./docker.ollama  # Custom Ollama Dockerfile
+    container_name: owcr_ollama  # Name the container
     ports:
-      - "11434:11434"
+      - "11434:11434"  # Expose Ollama API port
     environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_LOAD_TIMEOUT=900s
-      - OLLAMA_CPU=1         # Force CPU mode
+      - OLLAMA_HOST=0.0.0.0  # Bind to all interfaces
+      - OLLAMA_LOAD_TIMEOUT=900s  # Set load timeout
+      - OLLAMA_CPU=1  # Force CPU mode
     volumes:
-      - ollama:/root/.ollama
+      - ollama:/root/.ollama  # Persist Ollama data
     healthcheck:
-      # uses curl (present in your custom image)
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags > /dev/null || exit 1"]  # Check Ollama API
       interval: 5s
       timeout: 5s
       retries: 180
 
+  # Phoenix service for tracing
   phoenix:
-    image: arizephoenix/phoenix:latest
-    container_name: owcr_phoenix
+    image: arizephoenix/phoenix:latest  # Use latest Phoenix image
+    container_name: owcr_phoenix  # Name the container
     ports:
-      - "6006:6006"   # UI + OTLP/HTTP collector
-      - "4317:4317"   # OTLP/gRPC collector
+      - "6006:6006"  # Expose UI and OTLP/HTTP
+      - "4317:4317"  # Expose OTLP/gRPC
 
+  # API service for RAG application
   api:
     build:
-      context: .
-      dockerfile: Dockerfile  # Updated to root Dockerfile
-    container_name: owcr_api
+      context: .  # Build context is current directory
+      dockerfile: Dockerfile  # Use root Dockerfile
+    container_name: owcr_api  # Name the container
     env_file:
-      - .env
+      - .env  # Load environment variables from .env file
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:admin@postgres:5432/postgres}
-      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
-      - EMBED_MODEL=${EMBED_MODEL:-all-minilm:l12-v2}
-      - LLM_MODEL=${LLM_MODEL:-llama3.2:3b}
-      - RERANK_STRATEGY=${RERANK_STRATEGY:-mmr}
-      - TOP_K=${TOP_K:-24}
-      - TOP_N=${TOP_N:-8}
-      - MAX_CONTEXT_CHARS=${MAX_CONTEXT_CHARS:-12000}
-      - PHOENIX_ENABLED=true
-      - PHOENIX_PROJECT=owcr
-      - PHOENIX_ENDPOINT=http://phoenix:6006/v1/traces
-      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://phoenix:6006/v1/traces
-      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - RERANK_STRATEGY=ce
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:admin@postgres:5432/postgres}  # Database connection
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}  # Ollama API URL
+      - EMBED_MODEL=${EMBED_MODEL:-all-minilm:l12-v2}  # Embedding model
+      - LLM_MODEL=${LLM_MODEL:-llama3.2:3b}  # LLM model
+      - RERANK_STRATEGY=${RERANK_STRATEGY:-mmr}  # Reranking strategy
+      - TOP_K=${TOP_K:-24}  # Top K documents to retrieve
+      - TOP_N=${TOP_N:-8}  # Top N documents after reranking
+      - MAX_CONTEXT_CHARS=${MAX_CONTEXT_CHARS:-12000}  # Max context length
+      - PHOENIX_ENABLED=true  # Enable Phoenix tracing
+      - PHOENIX_PROJECT=owcr  # Phoenix project name
+      - PHOENIX_ENDPOINT=http://phoenix:6006/v1/traces  # Phoenix endpoint
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://phoenix:6006/v1/traces  # OpenTelemetry endpoint
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf  # OpenTelemetry protocol
+      - RERANK_STRATEGY=ce  # Set cross-encoder reranking
+      - OPTIMIZE_CREWAI=true  # Enable Crew.AI prompt optimization
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_healthy  # Wait for PostgreSQL
       ollama:
-        condition: service_healthy
+        condition: service_healthy  # Wait for Ollama
     ports:
-      - "8000:8000"
+      - "8000:8000"  # Expose API port
     volumes:
-      - ./docs:/app/docs:ro
+      - ./docs:/app/docs:ro  # Mount documents directory
     deploy:
       resources:
         limits:
-          cpus: "2.0"  # Limit to 2 CPU cores (adjust based on host)
-          memory: "6G"  # Increased memory limit
+          cpus: "2.0"  # Limit to 2 CPU cores
+          memory: "6G"  # Limit memory
         reservations:
-          cpus: "1.0"
-          memory: "2G"
+          cpus: "1.0"  # Reserve 1 CPU core
+          memory: "2G"  # Reserve 2GB memory
 
+  # Open WebUI service for user interface
   openwebui:
-    image: ghcr.io/open-webui/open-webui:latest
-    container_name: owcr_webui
+    image: ghcr.io/open-webui/open-webui:latest  # Use latest Open WebUI image
+    container_name: owcr_webui  # Name the container
     environment:
-      - OPENAI_API_BASE_URL=http://api:8000/v1
-      - OPENAI_API_KEY=sk-local-anything
+      - OPENAI_API_BASE_URL=http://api:8000/v1  # Set API URL
+      - OPENAI_API_KEY=sk-local-anything  # Set API key
     depends_on:
-      - api
+      - api  # Depend on API service
     ports:
-      - "3000:8080"
+      - "3000:8080"  # Expose WebUI port
     volumes:
-      - openwebui:/app/backend/data
+      - openwebui:/app/backend/data  # Persist WebUI data
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: 4G  # Limit memory
 
+# Define persistent volumes
 volumes:
-  pgdata:
-  ollama:
-  openwebui:
+  pgdata:  # PostgreSQL data volume
+  ollama:  # Ollama data volume
+  openwebui:  # WebUI data volume

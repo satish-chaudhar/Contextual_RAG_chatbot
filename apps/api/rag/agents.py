@@ -36,7 +36,7 @@ def optimize_prompt(user_input: str, assistant_response: str) -> str:
         )
         
         # Create Crew with single agent and task
-        crew = Crew(agents=[agent], tasks=[task], verbose=True)  # Enable verbose logging
+        crew = Crew(agents=[agent], tasks=[task], verbose=2)  # Verbose level 2 for detailed logs
         result = crew.kickoff()  # Execute the crew
         return result  # Return optimized query
     
@@ -60,7 +60,7 @@ def optimize_prompt(user_input: str, assistant_response: str) -> str:
         )
         
         # Create Crew with single agent and task
-        crew = Crew(agents=[agent], tasks=[task], verbose=True)  # Enable verbose logging
+        crew = Crew(agents=[agent], tasks=[task], verbose=2)  # Verbose level 2 for detailed logs
         result = crew.kickoff()  # Execute the crew
         return result  # Return optimized response
     

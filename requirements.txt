@@ -1,34 +1,36 @@
-fastapi==0.111.1
-uvicorn[standard]==0.30.3
-pydantic==2.8.2
-python-dotenv==1.0.1
-asyncpg==0.29.0
-psycopg2-binary==2.9.9
-SQLAlchemy==2.0.31
-llama-index==0.10.38
-llama-index-vector-stores-postgres==0.1.11
-arize-phoenix-otel>=0.5.0
-openinference-instrumentation-llama-index>=2.2.0  # For LlamaIndex tracing
-opentelemetry-api>=1.25.0
-opentelemetry-sdk>=1.25.0
-opentelemetry-exporter-otlp-proto-http>=1.25.0  # HTTP exporter for Phoenix
-opentelemetry-semantic-conventions-ai>=0.1.0  # Added for LLM semantics
-arize-phoenix-evals>=0.1.0  # Added for evaluations
-docling[all]==2.2.0
-PyPDF2==3.0.1
-ragas==0.1.7  # or latest compatible version
-langchain-openai==0.1.7  # or latest compatible version
-datasets>=2.14.0
-openai>=1.0.0
-pandas==2.2.2
-pyarrow==16.1.0
-requests==2.32.3
-langchain-core==0.2.39
-langchain-community==0.2.11
-typing-extensions>=4.11.0
-numpy==1.26.4
-# Optional but recommended for RAGAS eval runs
-tqdm>=4.66.0
-scikit-learn>=1.3.0
-crewai==0.51.1  # For agentic prompt optimization
-crewai-tools>=0.0.1  # Optional tools for Crew.AI agents
+fastapi==0.111.1 # Web framework for building the REST API
+uvicorn[standard]==0.30.3 # ASGI server for running FastAPI with WebSocket support
+pydantic==2.8.2 # Data validation and serialization for API models
+python-dotenv==1.0.1 # Load environment variables from .env file
+asyncpg==0.29.0 # Asynchronous PostgreSQL driver for LlamaIndex
+psycopg2-binary==2.9.9 # Synchronous PostgreSQL driver for SQLAlchemy
+SQLAlchemy==2.0.31 # ORM for database interactions
+llama-index-core==0.10.43 # Core LlamaIndex for RAG and semantic chunking (SemanticSplitterNodeParser)
+llama-index==0.10.43 # LlamaIndex for RAG pipeline and indexing
+llama-index-vector-stores-postgres==0.1.11 # PostgreSQL vector store for LlamaIndex embeddings
+arize-phoenix-otel>=0.5.0 # Phoenix OpenTelemetry integration for tracing
+openinference-instrumentation-llama-index>=2.2.4 # OpenTelemetry instrumentation for LlamaIndex tracing
+opentelemetry-api>=1.25.0 # OpenTelemetry API for tracing functionality
+opentelemetry-sdk>=1.25.0 # OpenTelemetry SDK for tracing implementation
+opentelemetry-exporter-otlp-proto-http>=1.25.0 # HTTP exporter for sending traces to Phoenix
+opentelemetry-semantic-conventions-ai>=0.2.0 # Semantic conventions for AI applications
+arize-phoenix-evals>=0.14.1 # Phoenix evaluators for response validation (QA, hallucination, relevance)
+docling[all]==2.2.0 # Advanced document processing (e.g., PDFs)
+PyPDF2==3.0.1 # PDF text extraction for ingestion
+ragas==0.1.9 # Evaluation framework for RAG pipelines
+langchain-openai==0.1.9 # LangChain integration for OpenAI models (evaluations)
+datasets>=2.19.1 # Datasets for evaluation and testing
+openai>=1.33.0 # OpenAI API client for evaluations
+pandas==2.2.2 # Data manipulation for evaluation datasets
+pyarrow==16.1.0 # Efficient data processing with Pandas
+requests==2.32.3 # HTTP client for Ollama API interactions
+langchain-core==0.2.10 # Core LangChain components for Crew.AI
+langchain-community==0.2.6 # Community LangChain components (e.g., Ollama LLM)
+typing-extensions>=4.12.2 # Type hints for compatibility with older Python versions
+numpy==1.26.4 # Numerical operations for embedding aggregation
+tqdm>=4.66.4 # Progress bar for ingestion pipeline
+scikit-learn>=1.5.0 # Machine learning utilities (e.g., reranking)
+crewai==0.51.1 # Crew.AI for agent-based prompt optimization
+crewai-tools>=0.4.0 # Additional tools for Crew.AI agents
+sentence-transformers>=2.7.0 # Sentence Transformers for semantic chunking in LlamaIndex
+torch>=2.3.0 # PyTorch for sentence-transformers
